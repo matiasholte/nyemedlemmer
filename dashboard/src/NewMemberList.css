@@ -34,7 +34,12 @@ h2 {
 }
 .headerNumbers {
   display: inline-block;
-  width: 100%
+  width: 100%;
+}
+
+div.barchart {
+  width: 500;
+  height: 500;
 }
 
  .number {

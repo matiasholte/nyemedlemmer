@@ -1,38 +1,46 @@
 import React, { Component } from 'react';
 import './NewMemberList.css';
+import { Chart } from 'react-google-charts';
+import { ResponsiveBar } from '@nivo/bar';
 import axios from 'axios';
-import distanceInWordsToNow  from 'date-fns/distance_in_words_to_now';
-import distanceInWords from 'date-fns/distance_in_words';
-import differenceInMinutes from 'date-fns/difference_in_minutes';
+import distanceInWordsToNow from 'date-fns/distance_in_words_to_now';
 import nblocale from 'date-fns/locale/nb';
-import bikebell from './bikebell.mp3';
 import arildBilde from './arild.jpeg';
 
-var API_GET_NEW_MEMBERS_URL = "http://0.0.0.0:5000/newmembers"
-var API_GET_LISTS_URL = "http://0.0.0.0:5000/lists"
-var NOTIFICATION_TRESHOLD_MINUTES = 3
-var HILIGHT_TRESHOLD_MINUTES = 60
-var SHOWN_HOURS_TRESHOLD = 24
+var API_GET_DOORS_URL = "http://amiculous.com:5000/doors";
+var API_GET_DOORS_EXTENDED = "http://amiculous.com:5000/doors/extended";
+var NOTIFICATION_TRESHOLD_MINUTES = 3;
 
 class NewMemberList extends Component {
-
   state = {
     new_members: [],
-    lists: 0
+    lists: 0,
+    doors: [[]],
+    doors_extended: [[]]
   };
 
   getItems() {
     axios
-    .get(API_GET_NEW_MEMBERS_URL+"/" + SHOWN_HOURS_TRESHOLD)
-    .then( response =>  {
-        const newState = {new_members: response.data};
+      .get(API_GET_DOORS_URL)
+      .then(response => {
+        const newState = { doors: response.data };
         this.setState(newState);
-    })
-    .catch(error => console.log(error));
+      })
+      .catch(error => console.log(error));
+    axios
+      .get(API_GET_DOORS_EXTENDED)
+      .then(response => {
+        const newState = { doors_extended: response.data };
+        this.setState(newState);
+      })
+      .catch(error => console.log(error));
   }
 
   componentDidMount() {
-    this.timer = setInterval(() => this.getItems(), NOTIFICATION_TRESHOLD_MINUTES * 60 * 1000);
+    this.timer = setInterval(
+      () => this.getItems(),
+      NOTIFICATION_TRESHOLD_MINUTES * 60 * 1000
+    );
     this.getItems();
   }
 
@@ -42,68 +50,153 @@ class NewMemberList extends Component {
 
   defaultPage() {
     return (
-  
       <div className="NewMemberList"><h2>STÅ PÅ, MILJØHELTER!</h2>
         <img alt="Arild på sykkel" src={arildBilde} />
       </div>
     );
   }
 
-  createListItemForMember(member, i) {
-    const signedUpTime = new Date(member.timestamp);
-
-    const timeSinceWords = "for "+distanceInWordsToNow(signedUpTime, {locale: nblocale}) + " siden";
-    const minutesSince = differenceInMinutes(new Date(), signedUpTime, {locale: nblocale});
-
-  
-    
-    const myRef = React.createRef();
-
-    return <li key={i} className={minutesSince < HILIGHT_TRESHOLD_MINUTES ? "new" : undefined}>
-              <div className={"chapter"}>{member.chapter} </div>
-              <div className="time"> {timeSinceWords}</div>
-              {minutesSince < NOTIFICATION_TRESHOLD_MINUTES && 
-                <audio ref={myRef} src={bikebell} autoPlay/>}
-            </li>
+  createDoorStat(doorStat) {
+    const description = doorStat[0];
+    const value = doorStat[1];
+    return (<tr><th>{description}</th><td>{value}</td></tr>);
   }
 
-  createNewMembersList() {
-    return (<div className="NewMemberList">
+  createDoorStats() {
+    return (
+      <div className="doorStats">
+        <table><tbody>{this.state.doors.map(this.createDoorStat)}</tbody></table>
+      </div>
+    );
+  }
 
-      <h2>Gratulerer med nytt medlem til:</h2>
+  createBarChart() {
+    let data = this.createData();
+    let doordata = this.state.doors;
+    let data2 = this.state.doors_extended;
+    let visitKeys = [0,1,2,3,4,5];
+    let visitData = [];
+    visitKeys.forEach((idx) => 
+      {if (doordata[idx] != null){
+        visitData.push({name: doordata[idx][0], 
+          målprosent: doordata[idx][1]/doordata[idx][2]*100, 
+          utført: doordata[idx][1],
+          restprosent:(doordata[idx][2] - doordata[idx][1])/doordata[idx][2]})
+     }})
 
-      <ul>
-        {this.state.new_members.map(this.createListItemForMember)}
-      </ul>
-    </div>)
+    const MyResponsiveBar = () => (
+      <ResponsiveBar
+        data={visitData}
+        keys={['målprosent']}
+        indexBy="name"
+        margin={{ top: 50, right: 130, bottom: 180, left: 150 }}
+        padding={0.3}
+        colors={{ scheme: 'nivo' }}
+ 
+        borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
+        axisTop={null}
+        axisRight={null}
+        axisBottom={{
+          tickSize: 5,
+          tickPadding: 5,
+          tickRotation: -30,
+          legendPosition: 'middle',
+          legendOffset: 32
+        }}
+        axisLeft={{
+          tickSize: 5,
+          tickPadding: 5,
+          tickRotation: 0,
+          legend: '% av målet',
+          legendPosition: 'middle',
+          legendOffset: -80
+        }}
+        label={({data}) => data.utført}
+        labelFormat={d => Math.round(10*d)/10}
+        labelSkipWidth={12}
+        labelSkipHeight={12}
+        labelTextColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
+        legends={[
+          {
+            dataFrom: 'keys',
+            anchor: 'bottom-right',
+            direction: 'column',
+            justify: false,
+            translateX: 120,
+            translateY: 0,
+            itemsSpacing: 2,
+            itemWidth: 100,
+            itemHeight: 20,
+            itemDirection: 'left-to-right',
+            itemOpacity: 0.85,
+            symbolSize: 20,
+            effects: [
+              {
+                on: 'hover',
+                style: {
+                  itemOpacity: 1
+                }
+              }
+            ]
+          }
+        ]}
+        animate={true}
+        motionStiffness={90}
+        motionDamping={15}
+        tooltip={({ data }) => (
+          data.name + " " + data.utført
+        )}
+        theme={{
+          axis: {
+            ticks: {
+              text: {
+                fontSize: "30px"
+              }
+            },
+            legend: {
+              text: {
+                fontSize: "30px"
+              }
+            }
+          },
+          labels: {
+            text: {
+              fontSize: "25px"
+            }
+          }
+        }}
+      />
+    );
+    return MyResponsiveBar;
+  }
 
+  createData() {
+    return [];
   }
 
   render() {
-
-    let newMembersItem;
-
-    if (this.state.new_members.length < 2) {
-      newMembersItem = this.defaultPage();
-    } else {
-      newMembersItem = this.createNewMembersList()
-    }
-
-    const timeToDeadline = distanceInWords(new Date(), new Date(2019, 3, 1, 12), {locale: nblocale})
-
+    let graphItem;
+    graphItem = this.defaultPage();
+    var doorStats = this.createDoorStats();
+    //   var barChart = this.createBarChart()(this.state.doors);
+    console.log(this.createData().length)
+    var barChart = this.createBarChart()(this.createData());
+    console.log(barChart);
+    const electionDay = new Date(2019, 8, 9, 20);
+    const timeToElection = distanceInWordsToNow(electionDay, { locale: nblocale });
     return (
-    <div className="app">
-    <h1 className="headerNumbers"> 
-      <div className="numberBox">
-        <div className="number">{this.state.new_members.length}</div>
-        <div className="textLarge">nye medlemmer</div>
-        <div className="text">siste 24 timer</div>
+      <div className="app">
+        <h1 className="headerNumbers">
+          <div className="numberBox">
+            {doorStats}
+            <div className="text">{timeToElection} igjen til valget!</div>
+          </div>
+        </h1>
+        <div style={{width:1000,height:800}}>
+          {barChart}
+        </div>
+        {graphItem}
       </div>
-    </h1>
-    
-    {newMembersItem}
-    </div>
-    
     );
   }
 }
