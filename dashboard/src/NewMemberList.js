@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import './NewMemberList.css';
-import { Chart } from 'react-google-charts';
 import { ResponsiveBar } from '@nivo/bar';
 import axios from 'axios';
 import distanceInWordsToNow from 'date-fns/distance_in_words_to_now';
@@ -112,7 +111,6 @@ class NewMemberList extends Component {
           legendOffset: -80
         }}
         label={({data}) => data.utført}
-        labelFormat={d => Math.round(10*d)/10}
         labelSkipWidth={12}
         labelSkipHeight={12}
         labelTextColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
