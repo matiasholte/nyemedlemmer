@@ -12,26 +12,12 @@ from google.auth.transport.requests import Request
 
 from datetime import datetime
 
-# If modifying these scopes, delete the file token.json.
-SCOPES = 'https://www.googleapis.com/auth/gmail.readonly'
-messagesStore= {}
-
 # If modifying these scopes, delete the file token.pickle.
 SHEET_SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
-# The ID and range of a sample spreadsheet.
-SAMPLE_SPREADSHEET_ID = '14fEYPSPJaMYvoESioHXSc0DR2jjiAFOns1FErhdGKPY'
-SAMPLE_RANGE_NAME = 'Tall!D2'
-
-def setupGmailService():
-    store = file.Storage('token-gmail.json')
-    creds = store.get()
-    
-    if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets('credentials-gmail.json', SCOPES)
-        creds = tools.run_flow(flow, store)
-
-    return build('gmail', 'v1', http=creds.authorize(Http()))
+DOOR_KNOCKING_SPREADSHEET_ID = '15NkVPeWOJvkDwY8tPCPhX16bDk9m2_TjU-ioGHa3LnY'
+DOOR_KNOCKING_RANGE = 'Kontakt/samtaler!K2:M9'
+FULL_RANGE = 'Kontakt/samtaler!A1:I100'
 
 def setupSheetsService():
     store = file.Storage('token-sheets.json')
@@ -48,75 +34,19 @@ def setupSheetsService():
 
     return build('sheets', 'v4', credentials=creds)
 
-
-def getEmailListFromGmail(service):
-    results = service.users().messages().list(userId='me').execute()
-    messages = results.get('messages', [])
-
-    nextPageToken = results.get('nextPageToken', False)
-
-    while nextPageToken:
-        results = service.users().messages().list(userId='me', pageToken=nextPageToken).execute()
-        nextPageToken = results.get('nextPageToken', False)
-        messages.extend(results.get('messages',[]))
-   
-    return messages
-
-
-def getMailbodyAndTimeFromGmail(service, messageid):
-    if messageid not in messagesStore:
-        result = service.users().messages().get(userId="me",id=messageid).execute()
-        messagesStore[messageid] = (result.get('snippet',[]), result.get('internalDate', 0))
-
-    return messagesStore[messageid]
-
-
-def isOlderThanTreshold(timestamp, hour_treshold):
-    dateTime = datetime.fromtimestamp(int(timestamp)/1000)
-    time_since_registration = datetime.today() - dateTime
-
-    return time_since_registration.total_seconds()//3600 > hour_treshold
-
-
-def getMembershipDataFromEmail(messageid, service):
-    mailBody, registeredTime = getMailbodyAndTimeFromGmail(service, messageid)
-
-    if not "meldt seg inn i" in mailBody:
-        return False
-
-    chapter = mailBody.split("meldt seg inn i ")[1].split(". L")[0]
-
-    return {
-        "chapter": chapter, 
-        "timestamp": int(registeredTime)
-    }
-
-
-def getNewMembers(hour_treshold):
-    service = setupGmailService()
-    new_memberships =  []
-
-    for email in getEmailListFromGmail(service):
-        membershipData = getMembershipDataFromEmail(email["id"], service)
-
-        if not membershipData:
-            continue
-
-        if isOlderThanTreshold(membershipData["timestamp"], hour_treshold):
-            break
-
-        new_memberships.append(membershipData)
-
-    return new_memberships
-
-def getNumberOfLists():
+def getDoorKnockingStats():
     service = setupSheetsService()
     sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range=SAMPLE_RANGE_NAME).execute()
-    value = result.get('values', [[-1]])
+    result = sheet.values().get(spreadsheetId=DOOR_KNOCKING_SPREADSHEET_ID,
+                                range=DOOR_KNOCKING_RANGE).execute()
+    return result.get('values')
 
-    return value[0][0]
+def getFullDoorKnockingStats():
+    service = setupSheetsService()
+    sheet = service.spreadsheets()
+    result = sheet.values().get(spreadsheetId=DOOR_KNOCKING_SPREADSHEET_ID,
+                                range=FULL_RANGE).execute()
+    return result.get('values')
 
 if __name__ == '__main__':
     server = flask.Flask(__name__)
@@ -124,16 +54,16 @@ if __name__ == '__main__':
     server.config["DEBUG"] = True
 
 
-    @server.route('/newmembers', methods=['GET'])
+    @server.route('/', methods=['GET'])
     def home():
-        return jsonify(getNewMembers(0))
+        return "it works!"
 
-    @server.route('/newmembers/<hour_treshold>', methods=['GET'])
-    def specific_day(hour_treshold):
-        return jsonify(getNewMembers(int(hour_treshold)))
+    @server.route('/doors', methods=['GET'])
+    def doorStats():
+        return jsonify(getDoorKnockingStats())
 
-    @server.route('/lists', methods=['GET'])
-    def get_number_of_lists():
-        return jsonify(getNumberOfLists())
+    @server.route('/doors/extended', methods=['GET'])
+    def fullDoorStats():
+        return jsonify(getFullDoorKnockingStats())
 
-    server.run()
+    server.run(host='0.0.0.0')
