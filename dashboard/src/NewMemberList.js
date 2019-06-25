@@ -7,8 +7,8 @@ import nblocale from 'date-fns/locale/nb';
 import arildBilde from './arild.jpeg';
 import lanBilde from './lan.jpeg';
 
-var API_GET_DOORS_URL = "http://amiculous.com:5000/doors";
-var API_GET_DOORS_EXTENDED = "http://amiculous.com:5000/doors/extended";
+var API_GET_DOORS_URL = "http://amiculous.com/doors";
+var API_GET_DOORS_EXTENDED = "http://amiculous.com/doors/extended";
 var NOTIFICATION_TRESHOLD_MINUTES = 3;
 
 class NewMemberList extends Component {
@@ -58,14 +58,17 @@ class NewMemberList extends Component {
 
   createDoorStat(doorStat) {
     const description = doorStat[0];
-    const value = doorStat[1];
-    return (<tr><th>{description}</th><td>{value}</td></tr>);
+      const value = doorStat[1];
+      const target = doorStat[2];
+      return (<tr><th>{description}</th><td>{value}</td><td><small>({target})</small></td></tr>);
   }
 
   createDoorStats() {
-    return (
+      let idx = [0,4,5];
+      let filteredDoors = idx.map(idx => this.state.doors[idx]).filter(item => item);
+      return (
       <div className="doorStats">
-        <table><tbody>{this.state.doors.map(this.createDoorStat)}</tbody></table>
+        <table><tbody>{filteredDoors.map(this.createDoorStat)}</tbody></table>
       </div>
     );
   }
@@ -191,14 +194,16 @@ class NewMemberList extends Component {
             <div className="text">{timeToElection} igjen til valget!</div>
           </div>
         </h1>
-        <div style={{width:1000,height:800}}>
-          {barChart}
-        </div>
         {graphItem}
       </div>
     );
   }
 }
 
-
+/*
+To be put after </h1>:
+        <div style={{width:1000,height:800}}>
+          {barChart}
+        </div>
+*/
 export default NewMemberList;
