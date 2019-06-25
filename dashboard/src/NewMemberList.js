@@ -5,6 +5,7 @@ import axios from 'axios';
 import distanceInWordsToNow from 'date-fns/distance_in_words_to_now';
 import nblocale from 'date-fns/locale/nb';
 import arildBilde from './arild.jpeg';
+import lanBilde from './lan.jpeg';
 
 var API_GET_DOORS_URL = "http://amiculous.com:5000/doors";
 var API_GET_DOORS_EXTENDED = "http://amiculous.com:5000/doors/extended";
@@ -22,7 +23,7 @@ class NewMemberList extends Component {
     axios
       .get(API_GET_DOORS_URL)
       .then(response => {
-        const newState = { doors: response.data };
+          const newState = { doors: response.data };
         this.setState(newState);
       })
       .catch(error => console.log(error));
@@ -50,7 +51,7 @@ class NewMemberList extends Component {
   defaultPage() {
     return (
       <div className="NewMemberList"><h2>STÅ PÅ, MILJØHELTER!</h2>
-        <img alt="Arild på sykkel" src={arildBilde} />
+        <img alt="Lan på aksjon" src={lanBilde} width='1000px'/>
       </div>
     );
   }
@@ -73,7 +74,7 @@ class NewMemberList extends Component {
     let data = this.createData();
     let doordata = this.state.doors;
     let data2 = this.state.doors_extended;
-    let visitKeys = [0,1,2,3,4,5];
+    let visitKeys = [0,4,5];
     let visitData = [];
     visitKeys.forEach((idx) => 
       {if (doordata[idx] != null){
